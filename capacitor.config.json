@@ -1,0 +1,9 @@
+{
+  "appId": "app.pixelpaint.family",
+  "appName": "Pixel Paint",
+  "webDir": "www",
+  "backgroundColor": "#fff8ec",
+  "android": {
+    "backgroundColor": "#fff8ec"
+  }
+}
