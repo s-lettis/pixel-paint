@@ -1,37 +1,62 @@
 # Pixel Paint
 
-Ad-free pixel art color-by-number for kids. No network, no tracking, no accounts.
-Everything lives in `www/index.html`. Progress and your own pictures are saved on the phone.
+Ad-free pixel art color-by-number for kids. No ads, no accounts, no tracking.
+The whole app is `www/index.html`. Progress and your own pictures are saved on the phone.
 
-## Get the APK (about 5 minutes, no installs on your computer)
+## 1. Get the APK (about 5 minutes, nothing to install on your computer)
 
 1. On github.com, create a **new private repository** (e.g. `pixel-paint`).
-2. Upload everything in this folder to it. Easiest: on the empty repo page choose
-   **uploading an existing file**, drag in the *contents* of this folder (including the hidden
-   `.github` folder), and commit. If your browser skips `.github`, create the file
-   `.github/workflows/build-apk.yml` by hand with **Add file > Create new file** and paste the
-   contents of the one in this folder.
-3. Open the repo's **Actions** tab. The "Build APK" workflow starts by itself on the commit
-   (or choose it and click **Run workflow**).
-4. When it turns green, open the run and download **pixel-paint-apk** from *Artifacts*.
-   Unzip it to get `app-debug.apk`.
-5. Copy `app-debug.apk` to the phone (USB, Drive, email to yourself) and tap it.
-   Android will ask to allow installs from that app (Files / Chrome / Drive): allow it.
+2. Upload everything in this folder to it. On the empty repo page choose **uploading an existing
+   file**, drag in the *contents* of this folder (including the hidden `.github` folder), and
+   commit. If `.github` is missing afterward, use **Add file > Create new file**, type
+   `.github/workflows/build-apk.yml` as the name, and paste in that file from this folder.
+   (Updating later: **Add file > Upload files** with the same file names replaces the old ones.)
+3. Open the **Actions** tab. "Build APK" starts by itself (or choose it and click **Run workflow**).
+4. When it turns green, open the run, download **pixel-paint-apk** under *Artifacts*, and unzip
+   it to get `app-debug.apk`.
+5. Copy the APK to the phone and tap it. Allow installs from that app when asked. On Samsung,
+   if it is blocked, turn off Settings > Security and privacy > Auto Blocker while installing.
 
-Samsung phones: if the install is blocked, turn off **Settings > Security and privacy >
-Auto Blocker** while installing (you can turn it back on afterward).
+Signing note: every build uses a fresh debug key, so Android will not install a new build over
+an older one. Uninstall the old app first (this erases saved progress on that phone).
 
-## Changing the app
+## 2. Sharing pictures (works right away, no server)
 
-Edit `www/index.html`, commit, and Actions builds a new APK. See the signing note below
-before installing it over an older build.
+- Make a picture with **New from a photo**, open it, tap **...** then **Share this picture**,
+  and send it with any messaging app. It goes out as a text code.
+- On the other phone, tap **Paste a picture** on the home screen and paste the message.
+
+## 3. Painting together live (one-time free setup, about 5 minutes)
+
+Rooms need a small online database that relays who painted what. This uses Google's free
+Firebase Realtime Database. It stores only the picture and cell numbers, with no accounts and no
+analytics. The setup is a one-time job for one person.
+
+1. Go to console.firebase.google.com and sign in with a Google account.
+2. **Create a project** (name it anything, e.g. `pixel-paint`). When asked about Google Analytics,
+   turn it **off**.
+3. In the project, go to **Databases & Storage > Realtime Database > Create database**. Pick any
+   location and start in **locked mode**. (Do not use test mode: it expires.)
+4. Open the **Rules** tab, replace everything with the contents of `firebase-rules.json` from this
+   folder, and click **Publish**.
+5. Open the **Data** tab and copy the address at the top. It looks like
+   `https://pixel-paint-xxxxx-default-rtdb.firebaseio.com` (or ends in `firebasedatabase.app`).
+6. In the app, tap the **gear** on the home screen and paste that address. Every phone that
+   plays together needs the same address.
+
+To avoid typing it on each phone, put it in the app itself: in `www/index.html` find the line
+`var DEFAULT_RELAY='';`, put your address between the quotes, commit, and rebuild.
+Anyone you give that APK to is ready to play.
+
+**Playing:** open any picture, tap **...** then **Paint together**. A 5-letter room code appears.
+Friends tap **Join a room** on their home screen and type it. Everyone fills in the same board in
+real time. The top bar shows the room code and how many people are in it.
+
+Privacy: anyone who has a room code can see and paint that room, and rooms cannot be listed.
+Rooms are not deleted automatically; you can delete the `rooms` entry in the Firebase Data tab
+whenever you like. The free tier is far more than a family will use.
 
 ## Notes
 
-- The APK is a debug build signed with a throwaway debug key. That is fine for sideloading to
-  your own family's phones. Every build from a fresh runner uses a new debug key, so Android
-  may refuse to update over an older build; uninstall first in that case (this erases progress).
-- Starter pictures are defined at the top of the script as small character grids, so new ones
-  are easy to add.
-- "New from a photo" turns any photo or drawing into a puzzle (size and number of colors are
-  adjustable before saving).
+- Starter pictures are small character grids at the top of the script, so adding more is easy.
+- "New from a photo" lets you pick the size and number of colors before saving.
