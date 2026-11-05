@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#fff8ec">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pixel Paint">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Pixel Paint</title>
 <style>
 :root{
@@ -93,7 +99,7 @@ input[type=text]{width:100%;border:2px solid #e6dcc8;border-radius:14px;padding:
 .codebig{font-size:46px;font-weight:900;letter-spacing:8px;text-align:center;margin:8px 0 4px;color:var(--accent);
   -webkit-user-select:text;user-select:text}
 .note{font-size:14px;color:var(--muted);font-weight:600;line-height:1.4;margin:6px 0}
-textarea{width:100%;height:110px;border:2px solid #e6dcc8;border-radius:14px;padding:10px;font-size:14px;resize:none;
+textarea{width:100%;height:110px;border:2px solid #e6dcc8;border-radius:14px;padding:10px;font-size:16px;resize:none;
   -webkit-user-select:text;user-select:text;font-family:inherit;color:var(--ink)}
 #joinCode{text-transform:uppercase;text-align:center;font-size:28px;letter-spacing:6px;font-weight:900}
 </style>
@@ -794,6 +800,7 @@ function copyText(text){
 function shareText(text,title){
   var Sh=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Share;
   if(Sh&&Sh.share)Sh.share({title:title,text:text,dialogTitle:title}).catch(function(){});
+  else if(navigator.share)navigator.share({title:title,text:text}).catch(function(e){if(!e||e.name!=='AbortError')copyText(text)});
   else copyText(text);
 }
 function sharePuzzle(p){
@@ -1002,6 +1009,9 @@ window.addEventListener('orientationchange',function(){setTimeout(function(){if(
 document.addEventListener('visibilitychange',function(){if(document.hidden)saveProgress();else if(coop)flushQueue()});
 window.addEventListener('pagehide',saveProgress);
 
+['gesturestart','gesturechange','gestureend'].forEach(function(n){document.addEventListener(n,function(e){e.preventDefault()})});
+var isNative=window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform();
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)&&!isNative)navigator.serviceWorker.register('sw.js').catch(function(){});
 history.replaceState({home:1},'');
 buildHome();
 window.__pp={makeCode:makeCode,parseCode:parseCode,openPuzzle:openPuzzle,state:function(){return {P:P,V:V,sel:sel,remaining:remaining,doneCells:doneCells,total:total,filled:filled}}};

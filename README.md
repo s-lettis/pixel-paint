@@ -46,7 +46,7 @@ analytics. The setup is a one-time job for one person.
 
 To avoid typing it on each phone, put it in the app itself: in `www/index.html` find the line
 `var DEFAULT_RELAY='';`, put your address between the quotes, commit, and rebuild.
-Anyone you give that APK to is ready to play.
+Anyone you give that APK to is ready to play. (Skip this if the repo is public, see section 4.)
 
 **Playing:** open any picture, tap **...** then **Paint together**. A 5-letter room code appears.
 Friends tap **Join a room** on their home screen and type it. Everyone fills in the same board in
@@ -55,6 +55,26 @@ real time. The top bar shows the room code and how many people are in it.
 Privacy: anyone who has a room code can see and paint that room, and rooms cannot be listed.
 Rooms are not deleted automatically; you can delete the `rooms` entry in the Firebase Data tab
 whenever you like. The free tier is far more than a family will use.
+
+## 4. Web version for iPhones (and anyone else)
+
+iPhones cannot sideload an APK, but the same app runs as a web app that installs to the Home
+Screen: no App Store, works offline after the first visit, and it joins the same rooms as the
+Android app. GitHub hosts it for free.
+
+1. GitHub's free hosting needs a **public** repo. Repo **Settings > General**, scroll to the bottom
+   **Danger Zone > Change visibility > Make public**. The repo holds only the app's code (no
+   passwords or pictures). If you made a Firebase address part of the code (`DEFAULT_RELAY`),
+   leave that blank in a public repo and type the address into the app's gear instead.
+2. Repo **Settings > Pages > Build and deployment > Source: GitHub Actions**.
+3. Open the **Actions** tab and run **Publish web app** (it also runs on every upload). When it is
+   green, the site address is `https://YOUR-USERNAME.github.io/YOUR-REPO-NAME/`.
+4. Send that link to the iPhone people. On the iPhone, open it in **Safari**, tap the **Share**
+   button, then **Add to Home Screen**, then **Add**. From then on open it from the new icon.
+   (Android: Chrome menu > Install app also works.)
+
+Tips: pictures and progress are stored per install, so always open from the Home Screen icon, not
+from a Safari tab. Updates arrive on their own the next time the app opens with internet.
 
 ## Notes
 
