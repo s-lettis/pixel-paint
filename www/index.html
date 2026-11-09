@@ -102,6 +102,14 @@ input[type=text]{width:100%;border:2px solid #e6dcc8;border-radius:14px;padding:
 textarea{width:100%;height:110px;border:2px solid #e6dcc8;border-radius:14px;padding:10px;font-size:16px;resize:none;
   -webkit-user-select:text;user-select:text;font-family:inherit;color:var(--ink)}
 #joinCode{text-transform:uppercase;text-align:center;font-size:28px;letter-spacing:6px;font-weight:900}
+
+.lobby{padding:10px 14px 0}
+.lt{font-weight:800;font-size:13px;color:var(--muted);margin-bottom:6px}
+.chip{border:0;border-radius:14px;background:#fff;padding:9px 12px;font-weight:800;font-size:14px;margin:0 6px 6px 0;
+  box-shadow:0 2px 0 rgba(0,0,0,.07);color:var(--ink);opacity:1}
+.chip.live{background:#d9f7d6}
+.fam{display:block;width:100%;border:0;border-radius:16px;padding:13px;font-size:16px;font-weight:900;background:var(--accent);color:#fff;margin-top:2px}
+.fam.dim{background:#eadfcb;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -113,6 +121,11 @@ textarea{width:100%;height:110px;border:2px solid #e6dcc8;border-radius:14px;pad
     <button class="mini" id="hJoin">&#128101; Join a room</button>
     <button class="mini" id="hPaste">&#128203; Paste a picture</button>
     <button class="mini" id="hSrv" aria-label="Server settings">&#9881;&#65039;</button>
+  </div>
+  <div class="lobby hidden" id="lobby">
+    <div class="lt" id="lobbyHead">Online now</div>
+    <div id="lobbyList"></div>
+    <button class="fam dim" id="famBtn"></button>
   </div>
   <div class="grid" id="grid"></div>
 </div>
@@ -173,8 +186,19 @@ textarea{width:100%;height:110px;border:2px solid #e6dcc8;border-radius:14px;pad
   <h2>Family server</h2>
   <p class="note">Painting together needs a small free online server that you set up once (see the README, it takes about 5 minutes). Paste its address here. Everyone who plays together needs the same address.</p>
   <input type="text" id="srvUrl" placeholder="https://your-project-default-rtdb.firebaseio.com" autocapitalize="none" autocomplete="off" spellcheck="false">
+  <label class="sl">Your name (shown to the family)</label>
+  <input type="text" id="srvName" maxlength="16" placeholder="Dad" autocomplete="off">
   <button class="btn pri" id="srvOk">Save</button>
   <button class="btn" id="srvCancel">Cancel</button>
+</div></div>
+
+<!-- TOGETHER CHOICE -->
+<div id="tog" class="modal hidden"><div class="sheet">
+  <h2>Paint together</h2>
+  <button class="btn pri" id="togFam">&#127968; Family room</button>
+  <p class="note" style="text-align:center">Everyone online sees it on their home screen and joins with one tap.</p>
+  <button class="btn" id="togPriv">Private room with a code</button>
+  <button class="btn" id="togCancel">Cancel</button>
 </div></div>
 
 <!-- JOIN -->
@@ -387,6 +411,7 @@ function goHome(){
   leaveRoom();
   if(P) saveProgress();
   P=null;showView('home');buildHome();
+  renderLobby();refreshFamily();
 }
 function openPuzzle(id,push){
   var p=findPuzzle(id);if(p)openPuzzleObj(p,push,false);
@@ -612,7 +637,7 @@ $('#bMenu').onclick=function(){
   $('#mDelete').classList.toggle('hidden',!(P&&P.custom)||inRoom);
   $('#mReset').classList.toggle('hidden',inRoom);
   $('#mTogether').classList.toggle('hidden',inRoom);
-  $('#mInvite').classList.toggle('hidden',!inRoom);
+  $('#mInvite').classList.toggle('hidden',!inRoom||coop.code==='FAMILY');
   $('#mLeave').classList.toggle('hidden',!inRoom);
   $('#mShare').classList.toggle('hidden',!(P&&(P.custom||inRoom)));
   $('#menu').classList.remove('hidden');
@@ -851,13 +876,15 @@ function countPlayers(){
   return Math.max(1,n);
 }
 function openSrv(cb){
-  srvCb=cb||null;$('#srvUrl').value=relayUrl();$('#srv').classList.remove('hidden');
+  srvCb=cb||null;$('#srvUrl').value=relayUrl();$('#srvName').value=settings.name||'';$('#srv').classList.remove('hidden');
 }
 $('#hSrv').onclick=function(){openSrv(null)};
 $('#srvCancel').onclick=function(){$('#srv').classList.add('hidden');srvCb=null};
 $('#srvOk').onclick=function(){
-  settings.relay=normalizeRelay($('#srvUrl').value);saveSettings();
+  settings.relay=normalizeRelay($('#srvUrl').value);
+  settings.name=($('#srvName').value||'').trim().slice(0,16);saveSettings();
   $('#srv').classList.add('hidden');
+  lobbyStart();
   var cb=srvCb;srvCb=null;
   if(cb&&relayUrl())cb();
   else toast(relayUrl()?'Saved':'Server address cleared');
@@ -873,7 +900,18 @@ $('#joinOk').onclick=function(){
   if(c.length<5){toast('Type the 5-letter room code');return}
   $('#join').classList.add('hidden');joinRoom(c,false);
 };
-$('#mTogether').onclick=function(){startRoom()};
+$('#mTogether').onclick=function(){
+  $('#menu').classList.add('hidden');
+  if(!relayUrl()){openSrv(function(){$('#mTogether').click()});return}
+  $('#tog').classList.remove('hidden');
+};
+$('#togCancel').onclick=function(){$('#tog').classList.add('hidden')};
+$('#togPriv').onclick=function(){$('#tog').classList.add('hidden');startRoom()};
+$('#togFam').onclick=function(){
+  $('#tog').classList.add('hidden');
+  if(fam&&!confirm('Replace the family picture ('+fam+') with this one?'))return;
+  startRoom('FAMILY');
+};
 $('#mInvite').onclick=function(){$('#menu').classList.add('hidden');showInvite()};
 $('#mLeave').onclick=function(){
   $('#menu').classList.add('hidden');
@@ -885,15 +923,15 @@ $('#invShare').onclick=function(){
   if(coop)shareText('Come paint with me in Pixel Paint! Open the app, tap "Join a room", and type: '+coop.code,'Invite');
 };
 
-function startRoom(){
+function startRoom(fixed){
   $('#menu').classList.add('hidden');
   if(!P)return;
-  if(!relayUrl()){openSrv(startRoom);return}
-  var code=genCode(),fobj={},any=false;
+  if(!relayUrl()){openSrv(function(){startRoom(fixed)});return}
+  var code=fixed||genCode(),fobj={},any=false;
   for(var i=0;i<filled.length;i++)if(filled[i]){fobj['c'+i]=1;any=true}
   var body={ts:Date.now(),puzzle:puzzleJSON(P)};
   if(any)body.f=fobj;
-  toast('Making your room…');
+  toast(fixed?'Starting the family room…':'Making your room…');
   rwrite(code,'','PUT',JSON.stringify(body)).then(function(r){
     if(!r.ok)throw new Error('http '+r.status);
     joinRoom(code,true);
@@ -919,21 +957,8 @@ function onRoomEvent(c,type,e){
   if(coop!==c)return;
   var m;try{m=JSON.parse(e.data)}catch(_){return}
   if(!m)return;
-  var path=m.path||'/',data=m.data;
-  if(path==='/'){
-    if(type==='put')c.room=(data&&typeof data==='object')?data:{};
-    else{var ks=Object.keys(data||{});for(var a=0;a<ks.length;a++){if(data[ks[a]]===null)delete c.room[ks[a]];else c.room[ks[a]]=data[ks[a]]}}
-  }else{
-    var parts=path.split('/').filter(Boolean),o=c.room;
-    for(var i=0;i<parts.length-1;i++){if(!o[parts[i]]||typeof o[parts[i]]!=='object')o[parts[i]]={};o=o[parts[i]]}
-    var last=parts[parts.length-1];
-    if(type==='put'){if(data===null||data===undefined)delete o[last];else o[last]=data}
-    else{
-      if(!o[last]||typeof o[last]!=='object')o[last]={};
-      var k2=Object.keys(data||{});
-      for(var b=0;b<k2.length;b++){if(data[k2[b]]===null)delete o[last][k2[b]];else o[last][k2[b]]=data[k2[b]]}
-    }
-  }
+  c.room=applyTree(c.room,type,m.path||'/',m.data);
+  if(c.opened&&c.room.puzzle&&c.room.ts!==c.ts)c.opened=false; // someone replaced the picture
   if(!c.gotFirst){
     c.gotFirst=true;
     if(!c.room.puzzle){toast('Could not find that room');leaveRoom();return}
@@ -942,13 +967,16 @@ function onRoomEvent(c,type,e){
     var p;
     try{p=validatePuzzleObj(c.room.puzzle)}catch(_){toast("That room's picture is broken");leaveRoom();return}
     p.id='room-'+c.code;p.custom=false;
+    var again=c.started;c.ts=c.room.ts;
     c.opened=true;clearTimeout(c.timeout);
     var inPlay=history.state&&history.state.play;
     if(inPlay)history.replaceState({play:p.id},'');
     openPuzzleObj(p,!inPlay,true);
-    c.beatT=setInterval(beat,20000);beat();
-    c.badgeT=setInterval(setTitle,15000);
-    if(c.host)showInvite();else toast('You are in room '+c.code);
+    if(!c.started){c.started=true;c.beatT=setInterval(beat,20000);beat();c.badgeT=setInterval(setTitle,15000)}
+    lobbyBeat();
+    if(again)toast('New family picture!');
+    else if(c.host&&c.code!=='FAMILY')showInvite();
+    else toast(c.code==='FAMILY'?(c.host?'Family room started. Others can join from their home screen.':'You are in the family room'):'You are in room '+c.code);
   }
   applyRoomFilled();
   setTitle();
@@ -990,7 +1018,7 @@ function beat(){
 }
 function leaveRoom(){
   var c=coop;if(!c)return;
-  coop=null;
+  coop=null;setTimeout(lobbyBeat,0);
   try{c.es&&c.es.close()}catch(e){}
   clearTimeout(c.timeout);clearTimeout(c.flushT);clearInterval(c.beatT);clearInterval(c.badgeT);
   if(c.opened){
@@ -998,6 +1026,104 @@ function leaveRoom(){
     rwrite(c.code,'/p/'+c.pid,'DELETE','').catch(function(){});
   }
 }
+
+
+/* ================= applyTree (shared by rooms and lobby) ================= */
+function applyTree(root,type,path,data){
+  if(path==='/'){
+    if(type==='put')return (data&&typeof data==='object')?data:{};
+    Object.keys(data||{}).forEach(function(k){if(data[k]===null)delete root[k];else root[k]=data[k]});
+    return root;
+  }
+  var parts=path.split('/').filter(Boolean),o=root;
+  for(var i=0;i<parts.length-1;i++){if(!o[parts[i]]||typeof o[parts[i]]!=='object')o[parts[i]]={};o=o[parts[i]]}
+  var last=parts[parts.length-1];
+  if(type==='put'){if(data===null||data===undefined)delete o[last];else o[last]=data}
+  else{
+    if(!o[last]||typeof o[last]!=='object')o[last]={};
+    Object.keys(data||{}).forEach(function(k){if(data[k]===null)delete o[last][k];else o[last][k]=data[k]});
+  }
+  return root;
+}
+
+/* ================= lobby: who is online + family room ================= */
+var lobby={},lobbyES=null,lobbyT=null,fam=null;
+function myPid(){
+  if(!settings.pid){settings.pid='d'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3);saveSettings()}
+  return settings.pid;
+}
+function myName(){return (settings.name||'').trim()||('Player '+myPid().slice(-3).toUpperCase())}
+function lobbyStop(){
+  if(lobbyES){try{lobbyES.close()}catch(e){}lobbyES=null}
+  clearInterval(lobbyT);lobbyT=null;
+}
+function lobbyStart(){
+  lobbyStop();
+  if(!relayUrl()||document.hidden){renderLobby();return}
+  try{lobbyES=new EventSource(relayUrl()+'/lobby.json')}catch(e){renderLobby();return}
+  lobbyES.addEventListener('put',function(e){lobbyEvent('put',e)});
+  lobbyES.addEventListener('patch',function(e){lobbyEvent('patch',e)});
+  lobbyBeat();
+  lobbyT=setInterval(function(){lobbyBeat();renderLobby()},20000);
+  refreshFamily();renderLobby();
+}
+function lobbyEvent(type,e){
+  var m;try{m=JSON.parse(e.data)}catch(_){return}
+  if(!m)return;
+  lobby=applyTree(lobby,type,m.path||'/',m.data);
+  renderLobby();
+}
+function lobbyWrite(method,body,keep){
+  if(!relayUrl())return Promise.resolve();
+  return fetch(relayUrl()+'/lobby/'+myPid()+'.json?x-http-method-override='+method+'&print=silent',
+    {method:'POST',body:body,keepalive:!!keep}).catch(function(){});
+}
+function lobbyBeat(){
+  if(!relayUrl())return;
+  var b={n:myName(),t:Date.now()};
+  if(coop&&coop.opened&&P){b.r=coop.code;b.pn=P.name}
+  lobbyWrite('PUT',JSON.stringify(b));
+}
+function lobbyLeave(){lobbyWrite('DELETE','',true)}
+function renderLobby(){
+  var box=$('#lobby');if(!box)return;
+  if(!relayUrl()){box.classList.add('hidden');return}
+  box.classList.remove('hidden');
+  $('#lobbyHead').textContent='Online now · you are '+myName();
+  var list=$('#lobbyList');list.innerHTML='';
+  var now=Date.now(),me=myPid(),n=0;
+  Object.keys(lobby).forEach(function(id){
+    var u=lobby[id];
+    if(id===me||!u||typeof u!=='object'||!u.n||now-(u.t||0)>70000)return;
+    n++;
+    if(u.r==='FAMILY'&&u.pn)fam=u.pn;
+    var b=document.createElement('button');b.className='chip'+(u.r?' live':'');
+    if(u.r){b.textContent='\u{1F7E2} '+u.n+' is painting '+(u.pn||'')+' → Join';b.onclick=function(){joinRoom(u.r,false)}}
+    else{b.textContent='\u{1F7E2} '+u.n;b.disabled=true}
+    list.appendChild(b);
+  });
+  if(!n){var d=document.createElement('div');d.className='note';d.style.margin='0 0 6px';d.textContent='Nobody else is online right now.';list.appendChild(d)}
+  renderFamily();
+}
+function refreshFamily(){
+  if(!relayUrl())return;
+  fetch(relayUrl()+'/rooms/FAMILY/puzzle/n.json').then(function(r){return r.json()}).then(function(n){
+    fam=(typeof n==='string'&&n)?n:null;renderFamily();
+  }).catch(function(){});
+}
+function renderFamily(){
+  var b=$('#famBtn');if(!b)return;
+  b.textContent=fam?('\u{1F3E0} Family room: '+fam):'\u{1F3E0} Family room (no picture yet)';
+  b.classList.toggle('dim',!fam);
+}
+$('#famBtn').onclick=function(){
+  if(fam)joinRoom('FAMILY',false);
+  else toast('Open a picture, tap ⋯, Paint together, then Family room');
+};
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){lobbyStop();lobbyLeave()}else lobbyStart();
+});
+window.addEventListener('pagehide',lobbyLeave);
 
 /* ================= navigation ================= */
 window.addEventListener('popstate',function(e){
@@ -1014,6 +1140,7 @@ var isNative=window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacit
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)&&!isNative)navigator.serviceWorker.register('sw.js').catch(function(){});
 history.replaceState({home:1},'');
 buildHome();
+lobbyStart();
 window.__pp={makeCode:makeCode,parseCode:parseCode,openPuzzle:openPuzzle,state:function(){return {P:P,V:V,sel:sel,remaining:remaining,doneCells:doneCells,total:total,filled:filled}}};
 })();
 </script>

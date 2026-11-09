@@ -48,7 +48,18 @@ To avoid typing it on each phone, put it in the app itself: in `www/index.html` 
 `var DEFAULT_RELAY='';`, put your address between the quotes, commit, and rebuild.
 Anyone you give that APK to is ready to play. (Skip this if the repo is public, see section 4.)
 
-**Playing:** open any picture, tap **...** then **Paint together**. A 5-letter room code appears.
+**Rules update (needed for the online list):** if you set up Firebase before this version, open the
+**Rules** tab again, replace everything with the new `firebase-rules.json`, and click **Publish**.
+
+**Names and the online list:** tap the gear, add your name (Dad, Jake...), and Save. The home screen
+then shows who is online. When someone is painting you see "Dad is painting Heart -> Join": one tap
+and you're in, no code needed. This works the same on Android and iPhone.
+
+**Family room:** one shared picture for everyone. Open a picture, tap **...**, **Paint together**,
+**Family room**. The home screen of everyone online shows "Family room: <picture>" and one tap
+joins. Starting a new family picture replaces the old one for everybody inside it.
+
+**Playing with a code:** open any picture, tap **...** then **Paint together**. A 5-letter room code appears.
 Friends tap **Join a room** on their home screen and type it. Everyone fills in the same board in
 real time. The top bar shows the room code and how many people are in it.
 
