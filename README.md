@@ -91,3 +91,14 @@ from a Safari tab. Updates arrive on their own the next time the app opens with 
 
 - Starter pictures are small character grids at the top of the script, so adding more is easy.
 - "New from a photo" lets you pick the size and number of colors before saving.
+
+
+## More pictures (v5)
+
+The gallery now has 20 bigger pictures (Thanksgiving, Christmas, Animals, Scenes) on top of the 8 easy starters.
+Use the tabs at the top to filter; **All** shows pictures you've started first. Stars show difficulty
+(more stars = more squares). The pictures live in `www/pictures.js`. The `art-src` folder is only the
+source used to draw them and is not needed to run or build the app.
+
+After updating: re-upload the whole `www` folder (it now includes `pictures.js`) and this README.
+The web version refreshes by itself; for Android, let the APK workflow finish, then reinstall.

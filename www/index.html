@@ -29,6 +29,12 @@ button{font-family:inherit;color:inherit;cursor:pointer}
 .hdr h1{margin:0;font-size:34px;font-weight:900;letter-spacing:-.5px}
 .hdr h1 span{color:var(--accent)}
 .hdr p{margin:2px 0 0;color:var(--muted);font-size:14px;font-weight:600}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:4px 14px 8px;flex:0 0 auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;border:0;border-radius:18px;background:#fff;color:var(--ink);font-weight:800;font-size:14px;padding:8px 14px;
+  box-shadow:0 2px 0 rgba(0,0,0,.07)}
+.tab.on{background:var(--ink);color:#fff}
+.card .meta{margin-top:2px;font-size:12px;color:var(--muted);font-weight:700}
 .grid{flex:1;overflow-y:auto;padding:12px 14px calc(var(--sab) + 24px);display:grid;
   grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;align-content:start}
 .card{background:#fff;border:0;border-radius:20px;padding:10px 10px 12px;text-align:center;position:relative;
@@ -127,6 +133,7 @@ textarea{width:100%;height:110px;border:2px solid #e6dcc8;border-radius:14px;pad
     <div id="lobbyList"></div>
     <button class="fam dim" id="famBtn"></button>
   </div>
+  <div class="tabs" id="tabs"></div>
   <div class="grid" id="grid"></div>
 </div>
 
@@ -232,6 +239,7 @@ textarea{width:100%;height:110px;border:2px solid #e6dcc8;border-radius:14px;pad
 <div id="toast"></div>
 <input type="file" id="file" accept="image/*" class="hidden">
 
+<script src="pictures.js"></script>
 <script>
 (function(){
 'use strict';
@@ -329,7 +337,13 @@ function saveCustom(list){
   }));
 }
 var CUSTOM=loadCustom();
-function allPuzzles(){return CUSTOM.slice().reverse().concat(STARTERS)}
+STARTERS.forEach(function(p){p.cat='Easy'});
+var PICS=(window.PP_PICTURES||[]).map(function(c){
+  return {id:c.id,name:c.name,w:c.w,h:c.h,palette:c.p,cells:decodeCells(c.c),cat:c.cat};
+});
+function allPuzzles(){return CUSTOM.slice().reverse().concat(PICS,STARTERS)}
+var TABS=[['All','\u{1F3A8} All'],['Mine','\u{1F4F7} Mine'],['Thanksgiving','\u{1F983} Thanksgiving'],['Christmas','\u{1F384} Christmas'],['Animals','\u{1F43E} Animals'],['Scenes','\u{1F304} Scenes'],['Easy','\u2B50 Easy']];
+function stars(p){var n=totalCells(p);return n<=300?1:n<=1000?2:n<=1800?3:4}
 function findPuzzle(id){var a=allPuzzles();for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null}
 
 /* ================= progress ================= */
@@ -382,7 +396,27 @@ function buildHome(){
   add.innerHTML='<div class="plus">+</div><div class="nm">New from a photo<br><small>or your kid\'s drawing</small></div>';
   add.onclick=function(){$('#file').click()};
   grid.appendChild(add);
-  allPuzzles().forEach(function(p){
+  var tabs=$('#tabs');tabs.innerHTML='';
+  var cur=settings.tab||'All';
+  TABS.forEach(function(t){
+    var tb=document.createElement('button');tb.className='tab'+(t[0]===cur?' on':'');tb.textContent=t[1];
+    tb.onclick=function(){settings.tab=t[0];saveSettings();buildHome();grid.scrollTop=0};
+    tabs.appendChild(tb);
+  });
+  var list=allPuzzles().filter(function(p){
+    if(cur==='All')return true;
+    if(cur==='Mine')return !!p.custom;
+    return p.cat===cur;
+  });
+  if(cur==='All'){
+    var rank=function(p){var f=progressFraction(p);return f>0&&f<0.9999?0:(p.custom?1:2)};
+    list=list.map(function(p,i){return {p:p,i:i}}).sort(function(a,b){return rank(a.p)-rank(b.p)||a.i-b.i}).map(function(o){return o.p});
+  }
+  if(cur==='Mine'&&!list.length){
+    var e=document.createElement('div');e.style.cssText='grid-column:1/-1;text-align:center;color:var(--muted);font-weight:700;padding:20px';
+    e.textContent='Pictures you make from photos show up here.';grid.appendChild(e);
+  }
+  list.forEach(function(p){
     var b=document.createElement('button');b.className='card';
     var cv=document.createElement('canvas'),nm=document.createElement('div');nm.className='nm';nm.textContent=p.name;
     var frac=progressFraction(p);
@@ -390,6 +424,8 @@ function buildHome(){
     var s=store.get('pp_prog_'+p.id,'');
     if(s){filled=new Uint8Array(p.cells.length);for(var i=0;i<filled.length;i++)filled[i]=s[i]==='1'?1:0}
     b.appendChild(cv);b.appendChild(nm);
+    var mt=document.createElement('div');mt.className='meta';
+    mt.textContent=new Array(stars(p)+1).join('\u2B50')+' \u00b7 '+p.palette.length+' colors';b.appendChild(mt);
     if(frac>=0.9999){var d=document.createElement('div');d.className='badge done';d.textContent='★ Done';b.appendChild(d)}
     else if(frac>0){var d2=document.createElement('div');d2.className='badge';d2.textContent=Math.round(frac*100)+'%';b.appendChild(d2)}
     b.onclick=function(){openPuzzle(p.id,true)};
